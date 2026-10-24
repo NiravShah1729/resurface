@@ -100,46 +100,21 @@ This boots the FastAPI REST API and runs the Telegram bot polling process togeth
 
 ## 📸 4. Screenshots & Demo
 
-### 1. Zero-Friction Capture (Chrome Extension Toast)
-```
-+-------------------------------------------------------------+
-| Instagram / LinkedIn Reel                                   |
-|                                                             |
-|   [Bookmark Clicked]                                        |
-|                                                             |
-|                                     +---------------------+ |
-|                                     | ⚡ Sent to Resurface | |
-|                                     +---------------------+ |
-+-------------------------------------------------------------+
-```
+### 1. Zero-Friction Capture (Chrome Extension on Instagram)
+*Clicking the native Save bookmark button on an Instagram reel/post automatically extracts the content, sends it to the local backend, and shows a confirmation toast.*
 
-### 2. Live Telegram Bot Confirmation & Nudge Flow
-```
-Telegram Bot (@nirav_hackerfestBot):
-─────────────────────────────────────────────────────────────
-Saved: Google Interview Prep with AI (skill) - The user wants 
-to learn how to leverage AI tools for technical interviews. 
-Action: learn
-https://www.instagram.com/reels/De10LQ3SN40/
+<p align="center">
+  <img src="screenshots/instagram_save.png" alt="Instagram Save Capture" width="700"/>
+</p>
 
-─────────────────────────────────────────────────────────────
-💡 Nudge: Ready to master your Google technical interviews? 
-Take 10 minutes to review these AI preparation strategies today.
+---
 
-📌 Google Interview Prep with AI (skill)
-🎯 Action: learn
-🔗 https://www.instagram.com/reels/De10LQ3SN40/
+### 2. Live Telegram Bot Confirmation & Interactive Q&A
+*Real-time confirmation with Gemma's extracted reasoning, periodic smart nudges, and intelligent semantic Q&A (`/ask`).*
 
-[ ✅ Done ]    [ ⏭️ Ignore ]
-─────────────────────────────────────────────────────────────
-User: /ask What movies did I save?
-
-Bot: You saved "Courtroom Drama Movie Recommendations" 
-(watch). The user was looking for high-quality courtroom 
-drama recommendations!
-```
-
-*(Add video/GIF link here: `demo.mp4`)*
+<p align="center">
+  <img src="screenshots/telegram_bot_chat.png" alt="Telegram Bot Confirmation and Q&A" width="600"/>
+</p>
 
 ---
 
