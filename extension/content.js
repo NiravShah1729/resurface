@@ -4,25 +4,27 @@
  * to background.js for local processing.
  */
 
+console.log("[Resurface] Content script initialized on:", window.location.href);
+
 // ============================================================================
 // SELECTORS CONFIGURATION (Easily inspectable and editable in DevTools)
 // ============================================================================
 const SELECTORS = {
   instagram: {
-    // Target Save control: button or svg with aria-label="Save"
-    saveAria: "Save",
+    // Keywords to identify Save control in aria-label, title, or button text
+    saveKeywords: ["save", "save reel", "save post", "save to collection"],
     // Ignore unsave / remove toggles
-    ignoredAriaKeywords: ["remove", "unsave", "saved"],
-    // Enclosing post container
+    ignoredKeywords: ["remove", "unsave", "saved"],
+    // Standard post container; if absent (e.g. in Reels viewer), fallback logic activates
     postContainer: "article, div[role='dialog'] article, main article",
     // Author element
-    author: "header a, a[role='link'] span, h2 a",
+    author: "header a, a[role='link'] span, h2 a, span[dir='auto'] a",
     // URL matching patterns for Instagram post permalinks
     permalinkPatterns: ["/p/", "/reel/"],
   },
   linkedin: {
     // Button or dropdown menu item with "Save" text / label
-    saveKeywords: ["save", "save for later"],
+    saveKeywords: ["save", "save for later", "save post"],
     // Ignore already saved / unsave actions
     ignoredKeywords: ["unsave", "saved", "remove"],
     // Enclosing update container
@@ -44,18 +46,19 @@ function showToast(message, isError = false) {
     toast.id = "resurface-toast";
     toast.style.cssText = `
       position: fixed;
-      bottom: 24px;
-      right: 24px;
+      bottom: 28px;
+      right: 28px;
       z-index: 2147483647;
-      padding: 12px 20px;
-      border-radius: 9999px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      font-size: 14px;
-      font-weight: 600;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-      transition: opacity 0.3s ease, transform 0.3s ease;
+      padding: 14px 24px;
+      border-radius: 50px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+      transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       opacity: 0;
-      transform: translateY(12px);
+      transform: translateY(16px);
       pointer-events: none;
     `;
     document.body.appendChild(toast);
@@ -65,7 +68,6 @@ function showToast(message, isError = false) {
   toast.style.color = "#ffffff";
   toast.innerText = message;
 
-  // Trigger animation
   requestAnimationFrame(() => {
     toast.style.opacity = "1";
     toast.style.transform = "translateY(0)";
@@ -73,8 +75,8 @@ function showToast(message, isError = false) {
 
   setTimeout(() => {
     toast.style.opacity = "0";
-    toast.style.transform = "translateY(12px)";
-  }, 2500);
+    toast.style.transform = "translateY(16px)";
+  }, 2800);
 }
 
 // ============================================================================
@@ -87,8 +89,29 @@ function getSiteType() {
   return null;
 }
 
+function findInstagramContainer(target) {
+  // 1. Standard feed post (<article>)
+  const article = target.closest("article");
+  if (article) return article;
+
+  // 2. Reels viewer: walk up ancestors to find the container housing the reel's video
+  let curr = target;
+  let videoContainer = null;
+  while (curr && curr !== document.body) {
+    if (curr.querySelector && curr.querySelector("video")) {
+      videoContainer = curr;
+      break;
+    }
+    curr = curr.parentElement;
+  }
+  if (videoContainer) return videoContainer;
+
+  // 3. Fallback to dialog, section, main, or document.body
+  return target.closest("div[role='dialog'], section, main") || document.body;
+}
+
 function findPermalink(container, patterns) {
-  if (container) {
+  if (container && container !== document.body) {
     const links = container.querySelectorAll("a[href]");
     for (const a of links) {
       const href = a.getAttribute("href") || "";
@@ -99,7 +122,16 @@ function findPermalink(container, patterns) {
       }
     }
   }
-  return window.location.href;
+
+  // If currently on a reel or post page directly
+  const curHref = window.location.href;
+  for (const pattern of patterns) {
+    if (curHref.includes(pattern)) {
+      return curHref;
+    }
+  }
+
+  return curHref;
 }
 
 function extractPostData(container, site) {
@@ -111,28 +143,35 @@ function extractPostData(container, site) {
   const authorEl = container.querySelector(config.author);
   const author = authorEl ? authorEl.innerText.trim() : "";
 
-  // Extract main text
-  let rawText = container.innerText || "";
+  // Extract text
+  let rawText = "";
+  if (container === document.body) {
+    // When falling back to body (single reel view), grab title and main text
+    const mainEl = document.querySelector("main") || document.body;
+    rawText = mainEl.innerText || document.title || "";
+  } else {
+    rawText = container.innerText || "";
+  }
+
   if (author && !rawText.startsWith(author)) {
     rawText = `Author: ${author}\n\n${rawText}`;
   }
 
-  // Cap at 3000 chars as specified
+  // Truncate to 3000 chars
   if (rawText.length > 3000) {
     rawText = rawText.slice(0, 3000) + "...";
   }
 
-  // Find permalink URL
   const url = findPermalink(container, config.permalinkPatterns);
 
   return {
-    raw_text: rawText.trim(),
+    raw_text: rawText.trim() || `Saved ${site} item at ${url}`,
     url: url,
     source: site,
   };
 }
 
-// Track last hovered/active LinkedIn post in case menu is rendered in a portal
+// Track last hovered/active LinkedIn post
 let lastHoveredPost = null;
 if (getSiteType() === "linkedin") {
   document.addEventListener("mouseover", (e) => {
@@ -155,26 +194,32 @@ document.addEventListener(
     let postContainer = null;
 
     if (site === "instagram") {
-      // Check aria-label on clicked element, button, or svg
-      const control = target.closest("button, svg, [role='button'], span");
+      // Find closest interactive control or svg
+      const control = target.closest("button, svg, [role='button'], span, div, a");
       if (control) {
         const aria = (
           control.getAttribute("aria-label") ||
           control.querySelector("[aria-label]")?.getAttribute("aria-label") ||
+          control.getAttribute("title") ||
           ""
         ).trim().toLowerCase();
 
-        const isIgnored = SELECTORS.instagram.ignoredAriaKeywords.some((w) =>
-          aria.includes(w)
+        const text = (control.innerText || "").trim().toLowerCase();
+        const combined = `${aria} ${text}`;
+
+        const matchesSave = SELECTORS.instagram.saveKeywords.some((w) =>
+          combined.includes(w)
+        );
+        const isIgnored = SELECTORS.instagram.ignoredKeywords.some((w) =>
+          combined.includes(w)
         );
 
-        if (aria === SELECTORS.instagram.saveAria.toLowerCase() && !isIgnored) {
+        if (matchesSave && !isIgnored) {
           isSaveClick = true;
-          postContainer = target.closest(SELECTORS.instagram.postContainer);
+          postContainer = findInstagramContainer(target);
         }
       }
     } else if (site === "linkedin") {
-      // Check text or aria-label for Save action (direct button or dropdown item)
       const control = target.closest("button, li, div[role='button'], a, span");
       if (control) {
         const text = (control.innerText || "").trim().toLowerCase();
@@ -191,17 +236,17 @@ document.addEventListener(
         if (matchesSave && !isIgnored) {
           isSaveClick = true;
           postContainer =
-            target.closest(SELECTORS.linkedin.postContainer) || lastHoveredPost;
+            target.closest(SELECTORS.linkedin.postContainer) || lastHoveredPost || document.body;
         }
       }
     }
 
-    if (isSaveClick && postContainer) {
-      console.log(`[Resurface] Detected Save action on ${site}. Extracting...`);
+    if (isSaveClick) {
+      console.log(`[Resurface] Detected Save action on ${site}. Target:`, target);
       const payload = extractPostData(postContainer, site);
+      console.log("[Resurface] Extracted payload:", payload);
 
       if (payload && payload.raw_text) {
-        // Send to background service worker (avoids page CSP & mixed content)
         chrome.runtime.sendMessage(
           { action: "SAVE_POST", payload },
           (response) => {
@@ -226,5 +271,5 @@ document.addEventListener(
       }
     }
   },
-  true // Capture phase as specified
+  true // Capture phase
 );
