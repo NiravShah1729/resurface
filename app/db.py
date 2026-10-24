@@ -140,3 +140,30 @@ def get_setting(
         cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
         row = cursor.fetchone()
         return row["value"] if row else default
+
+
+def get_next_nudge(db_path: str = DB_PATH) -> Optional[dict[str, Any]]:
+    """Retrieve top new save candidate: highest learning_score, lowest times_surfaced, oldest."""
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM saves
+            WHERE status = 'new'
+            ORDER BY learning_score DESC, times_surfaced ASC, created_at ASC
+            LIMIT 1
+            """
+        )
+        row = cursor.fetchone()
+        return dict(row) if row else None
+
+
+def increment_times_surfaced(save_id: int, db_path: str = DB_PATH) -> None:
+    """Increment the times_surfaced counter for a save."""
+    with get_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE saves SET times_surfaced = times_surfaced + 1 WHERE id = ?",
+            (save_id,),
+        )
+
