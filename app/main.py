@@ -5,6 +5,7 @@ from typing import Any, AsyncGenerator, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from app.bot import notify_new_save, start_bot, stop_bot
@@ -27,6 +28,14 @@ app = FastAPI(
     title="Resurface",
     description="Local-first app to capture and resurface what you save.",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

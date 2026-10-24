@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Resurface",
+  "version": "1.0.0",
+  "description": "Capture saved posts from Instagram and LinkedIn to Resurface locally.",
+  "host_permissions": [
+    "http://localhost:8000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.instagram.com/*",
+        "https://www.linkedin.com/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
